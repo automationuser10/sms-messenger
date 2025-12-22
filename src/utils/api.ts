@@ -28,7 +28,7 @@ export class ApiService {
   private constructor() {
     this.settings = {
       n8nWebhookUrl: 'https://n8n-self-host-6juc.onrender.com/webhook/send-sms',
-      n8nGetMessagesUrl: 'https://n8n-self-host-6juc.onrender.com/webhook/get-messages',
+      n8nGetMessagesUrl: 'https://cloud.automationhoster.org/webhook-test/inbound-sms',
       pollingInterval: 30 // seconds
     };
   }
@@ -191,7 +191,7 @@ export class ApiService {
   }
 
   // Poll for new messages
-  private async pollMessages() {
+  async pollMessages() {
     console.log('🔄 POLLING: Starting message poll from:', this.settings.n8nGetMessagesUrl);
     
     const result = await this.fetchMessagesFromApi();
@@ -438,6 +438,16 @@ export class ApiService {
     // This could be enhanced to fetch from a contacts API or local storage
     // For now, return empty string to show phone number
     return '';
+  }
+
+  // Format phone number for display
+  formatPhoneNumber(phone: string): string {
+    const cleaned = phone.replace(/\D/g, '');
+    if (cleaned.length === 11 && cleaned.startsWith('1')) {
+      const number = cleaned.substring(1);
+      return `(${number.substring(0, 3)}) ${number.substring(3, 6)}-${number.substring(6)}`;
+    }
+    return phone;
   }
 
   // Mark conversation as read
