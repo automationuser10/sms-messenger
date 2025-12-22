@@ -35,6 +35,42 @@ export const formatTimestampDetailed = (timestamp: string): string => {
   }
 };
 
+// Convert timestamp to Hong Kong time (HKT - UTC+8)
+export const formatHongKongTime = (timestamp: string): string => {
+  try {
+    const date = new Date(timestamp);
+    return date.toLocaleString('en-US', {
+      timeZone: 'Asia/Hong_Kong',
+      hour: '2-digit',
+      minute: '2-digit',
+      hour12: true,
+      month: 'short',
+      day: 'numeric'
+    });
+  } catch (error) {
+    console.error('Error formatting Hong Kong time:', error);
+    return 'Invalid time';
+  }
+};
+
+// Convert timestamp to Sri Lankan time (IST - UTC+5:30)
+export const formatSriLankanTime = (timestamp: string): string => {
+  try {
+    const date = new Date(timestamp);
+    return date.toLocaleString('en-US', {
+      timeZone: 'Asia/Colombo',
+      hour: '2-digit',
+      minute: '2-digit',
+      hour12: true,
+      month: 'short',
+      day: 'numeric'
+    });
+  } catch (error) {
+    console.error('Error formatting Sri Lankan time:', error);
+    return 'Invalid time';
+  }
+};
+
 export const formatPhoneNumber = (phone: string): string => {
   const cleaned = phone.replace(/\D/g, '');
   if (cleaned.length === 11 && cleaned.startsWith('1')) {

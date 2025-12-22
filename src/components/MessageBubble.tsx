@@ -1,7 +1,7 @@
 import React from 'react';
 import { Message } from '../types';
-import { formatTimestampDetailed } from '../utils/formatters';
-import { Check, CheckCheck, AlertCircle } from 'lucide-react';
+import { formatHongKongTime, formatSriLankanTime } from '../utils/formatters';
+import { Check, CheckCheck, AlertCircle, Clock } from 'lucide-react';
 
 interface MessageBubbleProps {
   message: Message;
@@ -27,6 +27,7 @@ const MessageBubble: React.FC<MessageBubbleProps> = ({ message, className = '' }
         return null;
     }
   };
+
   return (
     <div className={`flex ${isOutgoing ? 'justify-end' : 'justify-start'} mb-4 ${className}`}>
       <div className={`max-w-xs lg:max-w-md xl:max-w-lg ${isOutgoing ? 'ml-auto' : 'mr-auto'}`}>
@@ -41,9 +42,20 @@ const MessageBubble: React.FC<MessageBubbleProps> = ({ message, className = '' }
         >
           <p className="text-sm">{message.body}</p>
         </div>
-        <div className={`flex items-center gap-1 text-xs text-gray-500 mt-1 ${isOutgoing ? 'justify-end' : 'justify-start'}`}>
-          <span>{formatTimestampDetailed(message.timestamp)}</span>
-          {getStatusIcon()}
+        
+        {/* Timestamp with timezone info */}
+        <div className={`mt-1 space-y-0.5 ${isOutgoing ? 'text-right' : 'text-left'}`}>
+          <div className="flex items-center gap-1 text-xs text-gray-500">
+            <Clock className="w-3 h-3" />
+            <span className="font-medium">HK:</span>
+            <span>{formatHongKongTime(message.timestamp)}</span>
+            {isOutgoing && getStatusIcon()}
+          </div>
+          <div className="flex items-center gap-1 text-xs text-gray-500">
+            <Clock className="w-3 h-3" />
+            <span className="font-medium">LK:</span>
+            <span>{formatSriLankanTime(message.timestamp)}</span>
+          </div>
         </div>
       </div>
     </div>
