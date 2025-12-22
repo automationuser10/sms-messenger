@@ -27,8 +27,8 @@ export class ApiService {
 
   private constructor() {
     this.settings = {
-      n8nWebhookUrl: 'https://cloud.automationhoster.org/webhook-test/send-sms',
-      n8nGetMessagesUrl: 'https://cloud.automationhoster.org/webhook-test/get-messages',
+      n8nWebhookUrl: 'https://cloud.automationhoster.org/webhook/send-sms',
+      n8nGetMessagesUrl: 'https://cloud.automationhoster.org/webhook/get-messages',
       pollingInterval: 30 // seconds
     };
   }
