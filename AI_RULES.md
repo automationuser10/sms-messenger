@@ -136,7 +136,9 @@ export default Component;
 ## Security & Authentication
 
 - Simple username/password authentication (stored in localStorage)
-- Credentials: username="veerr", password="Vv123456"
+- Valid credentials:
+  - Username: "veerr", Password: "ai123456"
+  - Username: "githmi", Password: "ai123456"
 - No backend authentication - client-side only
 - Settings stored in localStorage (not secure for production)
 

@@ -12,9 +12,11 @@ const LoginPage: React.FC<LoginPageProps> = ({ onLogin }) => {
   const [error, setError] = useState('');
   const [isLoading, setIsLoading] = useState(false);
 
-  // Fixed credentials
-  const VALID_USERNAME = 'veerr';
-  const VALID_PASSWORD = 'Vv123456';
+  // Valid credentials
+  const VALID_CREDENTIALS = [
+    { username: 'veerr', password: 'ai123456' },
+    { username: 'githmi', password: 'ai123456' }
+  ];
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -24,9 +26,15 @@ const LoginPage: React.FC<LoginPageProps> = ({ onLogin }) => {
     // Simulate loading for better UX
     await new Promise(resolve => setTimeout(resolve, 500));
 
-    if (username === VALID_USERNAME && password === VALID_PASSWORD) {
+    // Check if credentials match any valid user
+    const isValid = VALID_CREDENTIALS.some(
+      cred => cred.username === username && cred.password === password
+    );
+
+    if (isValid) {
       // Save login state to localStorage
       localStorage.setItem('sms-app-authenticated', 'true');
+      localStorage.setItem('sms-app-username', username);
       onLogin();
     } else {
       setError('Invalid username or password');
