@@ -8,7 +8,7 @@ interface SettingsProps {
 
 const Settings: React.FC<SettingsProps> = ({ className = '' }) => {
   const [settings, setSettings] = useState({
-    n8nWebhookUrl: 'https://n8n-self-host-6juc.onrender.com/webhook/send-sms',
+    n8nWebhookUrl: 'https://cloud.automationhoster.org/webhook-test/send-sms',
     n8nGetMessagesUrl: 'https://cloud.automationhoster.org/webhook-test/inbound-sms',
     pollingInterval: 30
   });
@@ -21,7 +21,7 @@ const Settings: React.FC<SettingsProps> = ({ className = '' }) => {
     if (savedSettings) {
       const parsed = JSON.parse(savedSettings);
       setSettings({
-        n8nWebhookUrl: parsed.n8nWebhookUrl || 'https://n8n-self-host-6juc.onrender.com/webhook/send-sms',
+        n8nWebhookUrl: parsed.n8nWebhookUrl || 'https://cloud.automationhoster.org/webhook-test/send-sms',
         n8nGetMessagesUrl: parsed.n8nGetMessagesUrl || 'https://cloud.automationhoster.org/webhook-test/inbound-sms',
         pollingInterval: parsed.pollingInterval || 30
       });
