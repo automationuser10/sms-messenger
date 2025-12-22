@@ -57,10 +57,17 @@ const ConversationList: React.FC<ConversationListProps> = ({
     setError(null);
     
     try {
-      // Force a fresh poll of messages
+      // Force a fresh poll of messages from the API
+      console.log('🔄 MANUAL REFRESH: Calling pollMessages()...');
       await apiService.pollMessages();
+      
+      // Wait a moment for the polling to complete
+      await new Promise(resolve => setTimeout(resolve, 500));
+      
       // Then reload conversations
+      console.log('🔄 MANUAL REFRESH: Reloading conversations...');
       await loadConversations();
+      
       console.log('✅ MANUAL REFRESH: Complete');
     } catch (err) {
       console.error('❌ MANUAL REFRESH ERROR:', err);
@@ -199,9 +206,10 @@ const ConversationList: React.FC<ConversationListProps> = ({
               <p className="text-xs text-red-600 mt-1">{error}</p>
               <button
                 onClick={handleRefresh}
-                className="text-xs text-red-700 underline hover:text-red-900 mt-1"
+                disabled={refreshing}
+                className="text-xs text-red-700 underline hover:text-red-900 mt-1 disabled:opacity-50"
               >
-                Try again
+                {refreshing ? 'Refreshing...' : 'Try again'}
               </button>
             </div>
           </div>
@@ -226,9 +234,10 @@ const ConversationList: React.FC<ConversationListProps> = ({
             {!searchTerm && (
               <button
                 onClick={handleRefresh}
-                className="text-xs text-blue-600 hover:text-blue-800 mt-2 underline"
+                disabled={refreshing}
+                className="text-xs text-blue-600 hover:text-blue-800 mt-2 underline disabled:opacity-50"
               >
-                Refresh to check for messages
+                {refreshing ? 'Refreshing...' : 'Refresh to check for messages'}
               </button>
             )}
           </div>
