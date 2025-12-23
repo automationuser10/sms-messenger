@@ -3,12 +3,12 @@ import { Contact, Message, ApiResponse } from '../types';
 export interface ApiMessage {
   id: string;
   conversationId: string;
-  timestamp: string;
+  HKtimestamp: string;
+  SLtimestamp: string;
   messageBody: string;
-  direction: 'Incoming' | 'Outgoing';
-  messageSid: string | null;
+  direction: 'inbound' | 'outbound';
+  messageId: string | null;
   participants: string[];
-  type: string;
 }
 
 export class ApiService {
@@ -59,13 +59,16 @@ export class ApiService {
   private convertApiMessage(apiMessage: ApiMessage): Message {
     console.log('🔄 CONVERTING MESSAGE:', apiMessage);
     
+    // Convert direction from "inbound"/"outbound" to "Incoming"/"Outgoing"
+    const direction = apiMessage.direction === 'inbound' ? 'Incoming' : 'Outgoing';
+    
     const converted = {
       conversationId: apiMessage.conversationId,
-      timestamp: this.convertTimestamp(apiMessage.timestamp),
+      timestamp: this.convertTimestamp(apiMessage.HKtimestamp), // Use HK timestamp as primary
       body: apiMessage.messageBody,
-      direction: apiMessage.direction,
+      direction: direction,
       id: apiMessage.id,
-      status: apiMessage.direction === 'Outgoing' ? 'delivered' : undefined
+      status: direction === 'Outgoing' ? 'delivered' : undefined
     };
     
     console.log('✅ CONVERTED TO:', converted);
@@ -79,7 +82,7 @@ export class ApiService {
     try {
       // Handle MM/DD/YYYY, HH:MM:SS AM/PM format specifically
       if (timestamp.includes('/') && timestamp.includes(',')) {
-        // Parse format like "7/11/2025, 1:24:43 PM"
+        // Parse format like "12/22/2025, 2:45:11 PM"
         const date = new Date(timestamp);
         if (!isNaN(date.getTime())) {
           const isoString = date.toISOString();
@@ -148,11 +151,11 @@ export class ApiService {
           typeof msg === 'object' &&
           typeof msg.id === 'string' &&
           typeof msg.conversationId === 'string' &&
-          typeof msg.timestamp === 'string' &&
+          typeof msg.HKtimestamp === 'string' &&
+          typeof msg.SLtimestamp === 'string' &&
           typeof msg.messageBody === 'string' &&
-          (msg.direction === 'Incoming' || msg.direction === 'Outgoing') &&
-          Array.isArray(msg.participants) &&
-          typeof msg.type === 'string';
+          (msg.direction === 'inbound' || msg.direction === 'outbound') &&
+          Array.isArray(msg.participants);
         
         if (!isValid) {
           console.warn('Invalid message format:', msg);
