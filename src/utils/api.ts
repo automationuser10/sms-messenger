@@ -24,11 +24,24 @@ export class ApiService {
   private onErrorCallback: ((error: string) => void) | null = null;
 
   private constructor() {
-    this.settings = {
-      n8nWebhookUrl: 'https://cloud.automationhoster.org/webhook/send-sms',
-      n8nGetMessagesUrl: 'https://cloud.automationhoster.org/webhook/get-messages',
-      pollingInterval: 30 // seconds
-    };
+    // Load settings from localStorage
+    const savedSettings = localStorage.getItem('sms-app-settings');
+    if (savedSettings) {
+      const parsed = JSON.parse(savedSettings);
+      this.settings = {
+        n8nWebhookUrl: parsed.n8nWebhookUrl || 'https://cloud.automationhoster.org/webhook/send-sms',
+        n8nGetMessagesUrl: parsed.n8nGetMessagesUrl || 'https://cloud.automationhoster.org/webhook/get-messages',
+        pollingInterval: parsed.pollingInterval || 30
+      };
+    } else {
+      this.settings = {
+        n8nWebhookUrl: 'https://cloud.automationhoster.org/webhook/send-sms',
+        n8nGetMessagesUrl: 'https://cloud.automationhoster.org/webhook/get-messages',
+        pollingInterval: 30
+      };
+    }
+    
+    console.log('🚀 API SERVICE INITIALIZED with settings:', this.settings);
   }
 
   static getInstance(): ApiService {
@@ -40,22 +53,25 @@ export class ApiService {
 
   updateSettings(settings: Partial<typeof this.settings>) {
     this.settings = { ...this.settings, ...settings };
+    console.log('⚙️ SETTINGS UPDATED:', this.settings);
     this.restartPolling();
   }
 
   // Set callback for new messages
   setNewMessageCallback(callback: (messages: Message[]) => void) {
     this.onNewMessageCallback = callback;
+    console.log('📞 NEW MESSAGE CALLBACK SET');
   }
 
   // Set callback for errors
   setErrorCallback(callback: (error: string) => void) {
     this.onErrorCallback = callback;
+    console.log('📞 ERROR CALLBACK SET');
   }
 
   // Convert API message format to internal format
   private convertApiMessage(apiMessage: ApiMessage): Message {
-    console.log('🔄 CONVERTING MESSAGE:', apiMessage);
+    console.log('🔄 CONVERTING MESSAGE:', JSON.stringify(apiMessage, null, 2));
     
     // Convert direction from "INBOUND"/"OUTBOUND" to "Incoming"/"Outgoing"
     // INBOUND = message from lead (Incoming to us)
@@ -74,7 +90,7 @@ export class ApiService {
       status: direction === 'Outgoing' ? 'delivered' : undefined
     };
     
-    console.log('✅ CONVERTED TO:', converted);
+    console.log('✅ CONVERTED TO:', JSON.stringify(converted, null, 2));
     return converted;
   }
 
@@ -113,6 +129,8 @@ export class ApiService {
 
   // Fetch messages from API
   private async fetchMessagesFromApi(): Promise<ApiResponse<ApiMessage[]>> {
+    console.log('🌐 FETCHING FROM API:', this.settings.n8nGetMessagesUrl);
+    
     try {
       // Check if URL is configured
       if (!this.settings.n8nGetMessagesUrl || this.settings.n8nGetMessagesUrl.trim() === '') {
@@ -128,20 +146,24 @@ export class ApiService {
         signal: AbortSignal.timeout(10000) // 10 second timeout
       });
 
+      console.log('📡 RESPONSE STATUS:', response.status, response.statusText);
+
       if (!response.ok) {
         const errorText = await response.text().catch(() => 'Unknown error');
         throw new Error(`HTTP ${response.status}: ${response.statusText}${errorText ? ` - ${errorText}` : ''}`);
       }
 
       const data = await response.json();
+      console.log('📦 RAW API RESPONSE:', JSON.stringify(data, null, 2));
       
       // Handle API response format
       let messagesArray: ApiMessage[];
       if (Array.isArray(data)) {
         // Direct array response - validate message format
         messagesArray = data;
+        console.log('✅ RESPONSE IS ARRAY with', messagesArray.length, 'items');
       } else {
-        console.error('API response is not an array:', data);
+        console.error('❌ API response is not an array:', data);
         return { 
           data: [], 
           error: 'API response must be an array of message objects. Please check your n8n webhook configuration.' 
@@ -150,28 +172,42 @@ export class ApiService {
 
       // Validate message format
       const validMessages = messagesArray.filter(msg => {
+        const hasId = typeof msg.id === 'string';
+        const hasPhone = typeof msg.phoneNumber === 'number' || typeof msg.phoneNumber === 'string';
+        const hasDirection = msg.direction === 'INBOUND' || msg.direction === 'OUTBOUND';
+        const hasMessage = typeof msg.lastMessage === 'string';
+        const hasHKTime = typeof msg.lastMessageHK === 'string';
+        const hasSLTime = typeof msg.lastMessageSL === 'string';
+        
         const isValid = msg && 
           typeof msg === 'object' &&
-          typeof msg.id === 'string' &&
-          (typeof msg.phoneNumber === 'number' || typeof msg.phoneNumber === 'string') &&
-          (msg.direction === 'INBOUND' || msg.direction === 'OUTBOUND') &&
-          typeof msg.lastMessage === 'string' &&
-          typeof msg.lastMessageHK === 'string' &&
-          typeof msg.lastMessageSL === 'string';
+          hasId &&
+          hasPhone &&
+          hasDirection &&
+          hasMessage &&
+          hasHKTime &&
+          hasSLTime;
         
         if (!isValid) {
-          console.warn('Invalid message format:', msg);
+          console.warn('❌ INVALID MESSAGE FORMAT:', {
+            message: msg,
+            checks: { hasId, hasPhone, hasDirection, hasMessage, hasHKTime, hasSLTime }
+          });
         }
         
         return isValid;
       });
 
+      console.log(`✅ VALIDATED: ${validMessages.length} valid messages out of ${messagesArray.length} total`);
+
       if (validMessages.length !== messagesArray.length) {
-        console.warn(`Filtered out ${messagesArray.length - validMessages.length} invalid messages`);
+        console.warn(`⚠️ Filtered out ${messagesArray.length - validMessages.length} invalid messages`);
       }
 
       return { data: validMessages };
     } catch (error) {
+      console.error('❌ FETCH ERROR:', error);
+      
       let errorMessage = 'Network connection failed';
       
       if (error instanceof Error) {
@@ -254,7 +290,7 @@ export class ApiService {
 
   // Start polling
   startPolling() {
-    console.log('Starting message polling...');
+    console.log('▶️ STARTING POLLING with interval:', this.settings.pollingInterval, 'seconds');
     this.stopPolling();
     
     // Initial fetch
@@ -264,6 +300,8 @@ export class ApiService {
     this.pollingInterval = setInterval(() => {
       this.pollMessages();
     }, this.settings.pollingInterval * 1000);
+    
+    console.log('✅ POLLING STARTED');
   }
 
   // Stop polling
@@ -271,6 +309,7 @@ export class ApiService {
     if (this.pollingInterval) {
       clearInterval(this.pollingInterval);
       this.pollingInterval = null;
+      console.log('⏸️ POLLING STOPPED');
     }
     if (this.retryTimeout) {
       clearTimeout(this.retryTimeout);
@@ -281,6 +320,7 @@ export class ApiService {
   // Restart polling with new settings
   private restartPolling() {
     if (this.pollingInterval) {
+      console.log('🔄 RESTARTING POLLING');
       this.stopPolling();
       this.startPolling();
     }
@@ -288,6 +328,7 @@ export class ApiService {
 
   // Get all messages
   getAllMessages(): Message[] {
+    console.log('📨 GET ALL MESSAGES: Returning', this.allMessages.length, 'messages');
     return this.allMessages;
   }
 
@@ -363,16 +404,16 @@ export class ApiService {
   // Get messages for a specific conversation (phone number)
   async fetchMessages(phoneNumber: string): Promise<ApiResponse<Message[]>> {
     try {
-      console.log('Fetching messages for phone number:', phoneNumber);
+      console.log('📱 FETCHING MESSAGES for phone number:', phoneNumber);
       
       const messages = this.getAllMessages()
         .filter(msg => msg.conversationId === phoneNumber)
         .sort((a, b) => new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime());
 
-      console.log('Found', messages.length, 'messages for phone number');
+      console.log('✅ FOUND', messages.length, 'messages for phone number:', phoneNumber);
       return { data: messages };
     } catch (error) {
-      console.error('Error fetching messages for phone number:', error);
+      console.error('❌ ERROR fetching messages for phone number:', error);
       return { data: [], error: error instanceof Error ? error.message : 'Unknown error' };
     }
   }
@@ -419,10 +460,10 @@ export class ApiService {
         this.processedMessageIds.add(optimisticMessage.id);
       }
 
-      console.log('Message sent successfully');
+      console.log('✅ MESSAGE SENT successfully');
       return { data: true };
     } catch (error) {
-      console.error('Error sending message:', error);
+      console.error('❌ ERROR sending message:', error);
       let errorMessage = 'Failed to send message';
       
       if (error instanceof Error) {
@@ -469,7 +510,7 @@ export class ApiService {
 
   // Reset processed messages
   resetProcessedMessages() {
-    console.log('Resetting processed messages');
+    console.log('🔄 RESETTING processed messages');
     this.processedMessageIds.clear();
     this.allMessages = [];
   }
