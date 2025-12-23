@@ -2,13 +2,11 @@ import { Contact, Message, ApiResponse } from '../types';
 
 export interface ApiMessage {
   id: string;
-  conversationId: string;
-  HKtimestamp: string;
-  SLtimestamp: string;
-  messageBody: string;
-  direction: 'inbound' | 'outbound';
-  messageId: string | null;
-  participants: string[];
+  phoneNumber: number;
+  direction: 'INBOUND' | 'OUTBOUND';
+  lastMessage: string;
+  lastMessageHK: string;
+  lastMessageSL: string;
 }
 
 export class ApiService {
@@ -59,13 +57,18 @@ export class ApiService {
   private convertApiMessage(apiMessage: ApiMessage): Message {
     console.log('🔄 CONVERTING MESSAGE:', apiMessage);
     
-    // Convert direction from "inbound"/"outbound" to "Incoming"/"Outgoing"
-    const direction = apiMessage.direction === 'inbound' ? 'Incoming' : 'Outgoing';
+    // Convert direction from "INBOUND"/"OUTBOUND" to "Incoming"/"Outgoing"
+    // INBOUND = message from lead (Incoming to us)
+    // OUTBOUND = message from us (Outgoing to lead)
+    const direction = apiMessage.direction === 'INBOUND' ? 'Incoming' : 'Outgoing';
     
-    const converted = {
-      conversationId: apiMessage.conversationId,
-      timestamp: this.convertTimestamp(apiMessage.HKtimestamp), // Use HK timestamp as primary
-      body: apiMessage.messageBody,
+    // Use phone number as conversation ID
+    const conversationId = String(apiMessage.phoneNumber);
+    
+    const converted: Message = {
+      conversationId: conversationId,
+      timestamp: this.convertTimestamp(apiMessage.lastMessageHK), // Use HK timestamp as primary
+      body: apiMessage.lastMessage,
       direction: direction,
       id: apiMessage.id,
       status: direction === 'Outgoing' ? 'delivered' : undefined
@@ -150,12 +153,11 @@ export class ApiService {
         const isValid = msg && 
           typeof msg === 'object' &&
           typeof msg.id === 'string' &&
-          typeof msg.conversationId === 'string' &&
-          typeof msg.HKtimestamp === 'string' &&
-          typeof msg.SLtimestamp === 'string' &&
-          typeof msg.messageBody === 'string' &&
-          (msg.direction === 'inbound' || msg.direction === 'outbound') &&
-          Array.isArray(msg.participants);
+          (typeof msg.phoneNumber === 'number' || typeof msg.phoneNumber === 'string') &&
+          (msg.direction === 'INBOUND' || msg.direction === 'OUTBOUND') &&
+          typeof msg.lastMessage === 'string' &&
+          typeof msg.lastMessageHK === 'string' &&
+          typeof msg.lastMessageSL === 'string';
         
         if (!isValid) {
           console.warn('Invalid message format:', msg);
@@ -299,10 +301,10 @@ export class ApiService {
       
       const conversationMap = new Map<string, Contact>();
 
-      // Group messages by conversation ID and find latest message
+      // Group messages by phone number (conversation ID) and find latest message
       messages.forEach(message => {
         const phone = message.conversationId;
-        console.log('🔄 PROCESSING MESSAGE for conversation:', phone, 'Message:', message.body);
+        console.log('🔄 PROCESSING MESSAGE for phone:', phone, 'Message:', message.body);
         
         const existing = conversationMap.get(phone);
         console.log('📋 EXISTING CONVERSATION:', existing ? 'Found' : 'Not found');
@@ -317,9 +319,9 @@ export class ApiService {
         });
         
         if (!existing || messageTime > existingTime) {
-          const newContact = {
+          const newContact: Contact = {
             phone,
-            name: this.getContactName(phone),
+            name: this.formatPhoneNumber(phone), // Use formatted phone as display name
             lastMessage: message.body,
             timestamp: message.timestamp,
             unread: message.direction === 'Incoming' && (!existing || messageTime > existingTime)
@@ -343,10 +345,11 @@ export class ApiService {
       
       // Log conversation grouping summary
       const groupingSummary = conversations.map(c => ({
-        conversationId: c.phone,
+        phoneNumber: c.phone,
         messageCount: messages.filter(m => m.conversationId === c.phone).length,
         lastMessage: c.lastMessage,
-        timestamp: c.timestamp
+        timestamp: c.timestamp,
+        direction: messages.find(m => m.conversationId === c.phone && m.timestamp === c.timestamp)?.direction
       }));
       console.log('📊 CONVERSATION SUMMARY:', groupingSummary);
       
@@ -357,19 +360,19 @@ export class ApiService {
     }
   }
 
-  // Get messages for a specific conversation
+  // Get messages for a specific conversation (phone number)
   async fetchMessages(phoneNumber: string): Promise<ApiResponse<Message[]>> {
     try {
-      console.log('Fetching messages for conversation:', phoneNumber);
+      console.log('Fetching messages for phone number:', phoneNumber);
       
       const messages = this.getAllMessages()
         .filter(msg => msg.conversationId === phoneNumber)
         .sort((a, b) => new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime());
 
-      console.log('Found', messages.length, 'messages for conversation');
+      console.log('Found', messages.length, 'messages for phone number');
       return { data: messages };
     } catch (error) {
-      console.error('Error fetching messages for conversation:', error);
+      console.error('Error fetching messages for phone number:', error);
       return { data: [], error: error instanceof Error ? error.message : 'Unknown error' };
     }
   }
@@ -436,20 +439,25 @@ export class ApiService {
     }
   }
 
-  // Get contact name (placeholder - could be enhanced with a contacts API)
-  private getContactName(phone: string): string {
-    // This could be enhanced to fetch from a contacts API or local storage
-    // For now, return empty string to show phone number
-    return '';
-  }
-
   // Format phone number for display
   formatPhoneNumber(phone: string): string {
+    // Remove any non-digit characters
     const cleaned = phone.replace(/\D/g, '');
+    
+    // Format based on length
     if (cleaned.length === 11 && cleaned.startsWith('1')) {
+      // US/Canada format: +1 (XXX) XXX-XXXX
       const number = cleaned.substring(1);
-      return `(${number.substring(0, 3)}) ${number.substring(3, 6)}-${number.substring(6)}`;
+      return `+1 (${number.substring(0, 3)}) ${number.substring(3, 6)}-${number.substring(6)}`;
+    } else if (cleaned.length === 10) {
+      // US/Canada without country code: (XXX) XXX-XXXX
+      return `(${cleaned.substring(0, 3)}) ${cleaned.substring(3, 6)}-${cleaned.substring(6)}`;
+    } else if (cleaned.length > 10) {
+      // International format: +XX XXXXXXXXXX
+      return `+${cleaned}`;
     }
+    
+    // Return as-is if format is unknown
     return phone;
   }
 
