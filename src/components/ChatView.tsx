@@ -2,7 +2,6 @@ import React, { useState, useEffect, useRef } from 'react';
 import { Message } from '../types';
 import MessageBubble from './MessageBubble';
 import MessageInput from './MessageInput';
-import Avatar from './Avatar';
 import { formatPhoneNumber } from '../utils/formatters';
 import { ApiService } from '../utils/api';
 import { ArrowLeft, Phone, MoreVertical, RefreshCw } from 'lucide-react';
@@ -25,8 +24,33 @@ const ChatView: React.FC<ChatViewProps> = ({
   const [sending, setSending] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [newMessageCount, setNewMessageCount] = useState(0);
+  const [leadNumber, setLeadNumber] = useState<number | null>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const previousMessageCount = useRef(0);
+
+  // Calculate lead number based on all conversations
+  useEffect(() => {
+    const calculateLeadNumber = async () => {
+      if (!selectedPhone) return;
+      
+      const apiService = ApiService.getInstance();
+      const result = await apiService.fetchConversations();
+      
+      if (!result.error && result.data.length > 0) {
+        // Sort by timestamp (oldest first) to assign numbers in order of first contact
+        const sortedByFirstContact = [...result.data].sort((a, b) => 
+          new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime()
+        );
+        
+        const index = sortedByFirstContact.findIndex(c => c.phone === selectedPhone);
+        if (index !== -1) {
+          setLeadNumber(index + 1);
+        }
+      }
+    };
+    
+    calculateLeadNumber();
+  }, [selectedPhone]);
 
   // Load messages for selected conversation
   useEffect(() => {
@@ -167,10 +191,15 @@ const ChatView: React.FC<ChatViewProps> = ({
               <ArrowLeft className="w-5 h-5" />
             </button>
           )}
-          <Avatar name={contactName} phone={selectedPhone} />
+          {/* Numbered Avatar */}
+          <div className="w-10 h-10 bg-gradient-to-br from-blue-500 to-purple-600 rounded-full flex items-center justify-center">
+            <span className="text-sm font-bold text-white">
+              {leadNumber || '?'}
+            </span>
+          </div>
           <div>
             <h2 className="text-lg font-semibold text-gray-900">
-              {contactName || formatPhoneNumber(selectedPhone)}
+              Lead #{leadNumber || '...'}
             </h2>
             <p className="text-sm text-gray-600">{formatPhoneNumber(selectedPhone)}</p>
           </div>

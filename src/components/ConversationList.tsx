@@ -21,8 +21,28 @@ const ConversationList: React.FC<ConversationListProps> = ({
   const [error, setError] = useState<string | null>(null);
   const [searchTerm, setSearchTerm] = useState('');
   const [refreshing, setRefreshing] = useState(false);
+  const [phoneNumberMap, setPhoneNumberMap] = useState<Map<string, number>>(new Map());
 
   const apiService = ApiService.getInstance();
+
+  // Assign numbers to phone numbers based on first appearance
+  const assignPhoneNumbers = (contacts: Contact[]) => {
+    const newMap = new Map<string, number>();
+    
+    // Sort by timestamp (oldest first) to assign numbers in order of first contact
+    const sortedByFirstContact = [...contacts].sort((a, b) => 
+      new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime()
+    );
+    
+    sortedByFirstContact.forEach((contact, index) => {
+      if (!newMap.has(contact.phone)) {
+        newMap.set(contact.phone, index + 1);
+      }
+    });
+    
+    setPhoneNumberMap(newMap);
+    console.log('📊 PHONE NUMBER MAP:', Array.from(newMap.entries()));
+  };
 
   // Load conversations
   const loadConversations = async () => {
@@ -38,6 +58,7 @@ const ConversationList: React.FC<ConversationListProps> = ({
         console.log('✅ CONVERSATIONS LOADED:', result.data.length, 'conversations');
         console.log('📋 CONVERSATION DATA:', JSON.stringify(result.data, null, 2));
         setConversations(result.data);
+        assignPhoneNumbers(result.data);
         setError(null);
       }
     } catch (err) {
@@ -128,10 +149,12 @@ const ConversationList: React.FC<ConversationListProps> = ({
   // Filter conversations based on search term
   const filteredConversations = conversations.filter(contact => {
     const searchLower = searchTerm.toLowerCase();
+    const leadNumber = phoneNumberMap.get(contact.phone)?.toString() || '';
     return (
       contact.name.toLowerCase().includes(searchLower) ||
       contact.phone.toLowerCase().includes(searchLower) ||
-      contact.lastMessage.toLowerCase().includes(searchLower)
+      contact.lastMessage.toLowerCase().includes(searchLower) ||
+      leadNumber.includes(searchLower)
     );
   });
 
@@ -170,7 +193,12 @@ const ConversationList: React.FC<ConversationListProps> = ({
       {/* Header */}
       <div className="p-4 border-b border-gray-200">
         <div className="flex items-center justify-between mb-4">
-          <h2 className="text-xl font-semibold text-gray-900">Messages</h2>
+          <div>
+            <h2 className="text-xl font-semibold text-gray-900">Messages</h2>
+            <p className="text-xs text-gray-500 mt-1">
+              {conversations.length} {conversations.length === 1 ? 'lead' : 'leads'}
+            </p>
+          </div>
           <button
             onClick={handleRefresh}
             disabled={refreshing}
@@ -243,47 +271,55 @@ const ConversationList: React.FC<ConversationListProps> = ({
           </div>
         ) : (
           <div className="divide-y divide-gray-100">
-            {filteredConversations.map((contact) => (
-              <div
-                key={contact.phone}
-                onClick={() => onSelectConversation(contact.phone, contact)}
-                className={`p-4 hover:bg-gray-50 cursor-pointer transition-colors ${
-                  selectedPhone === contact.phone ? 'bg-blue-50 border-r-2 border-blue-500' : ''
-                }`}
-              >
-                <div className="flex items-start space-x-3">
-                  {/* Avatar */}
-                  <div className="flex-shrink-0">
-                    <div className="w-10 h-10 bg-gray-300 rounded-full flex items-center justify-center">
-                      <span className="text-sm font-medium text-gray-700">
-                        {contact.name ? contact.name.charAt(0).toUpperCase() : contact.phone.slice(-2)}
-                      </span>
-                    </div>
-                  </div>
-                  
-                  {/* Content */}
-                  <div className="flex-1 min-w-0">
-                    <div className="flex items-center justify-between">
-                      <h3 className="text-sm font-medium text-gray-900 truncate">
-                        {contact.name || contact.phone}
-                      </h3>
-                      <div className="flex items-center space-x-1">
-                        {contact.unread && (
-                          <div className="w-2 h-2 bg-blue-500 rounded-full"></div>
-                        )}
-                        <span className="text-xs text-gray-500 flex items-center">
-                          <Clock className="w-3 h-3 mr-1" />
-                          {formatTimestamp(contact.timestamp)}
+            {filteredConversations.map((contact) => {
+              const leadNumber = phoneNumberMap.get(contact.phone) || 0;
+              return (
+                <div
+                  key={contact.phone}
+                  onClick={() => onSelectConversation(contact.phone, contact)}
+                  className={`p-4 hover:bg-gray-50 cursor-pointer transition-colors ${
+                    selectedPhone === contact.phone ? 'bg-blue-50 border-r-2 border-blue-500' : ''
+                  }`}
+                >
+                  <div className="flex items-start space-x-3">
+                    {/* Numbered Avatar */}
+                    <div className="flex-shrink-0">
+                      <div className="w-10 h-10 bg-gradient-to-br from-blue-500 to-purple-600 rounded-full flex items-center justify-center">
+                        <span className="text-sm font-bold text-white">
+                          {leadNumber}
                         </span>
                       </div>
                     </div>
-                    <p className="text-sm text-gray-600 truncate mt-1">
-                      {truncateMessage(contact.lastMessage)}
-                    </p>
+                    
+                    {/* Content */}
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center space-x-2">
+                          <h3 className="text-sm font-medium text-gray-900 truncate">
+                            Lead #{leadNumber}
+                          </h3>
+                          <span className="text-xs text-gray-500">
+                            {contact.name || contact.phone}
+                          </span>
+                        </div>
+                        <div className="flex items-center space-x-1">
+                          {contact.unread && (
+                            <div className="w-2 h-2 bg-blue-500 rounded-full"></div>
+                          )}
+                          <span className="text-xs text-gray-500 flex items-center">
+                            <Clock className="w-3 h-3 mr-1" />
+                            {formatTimestamp(contact.timestamp)}
+                          </span>
+                        </div>
+                      </div>
+                      <p className="text-sm text-gray-600 truncate mt-1">
+                        {truncateMessage(contact.lastMessage)}
+                      </p>
+                    </div>
                   </div>
                 </div>
-              </div>
-            ))}
+              );
+            })}
           </div>
         )}
       </div>
