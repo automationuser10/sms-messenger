@@ -1,16 +1,12 @@
 import React from 'react';
-import { getInitials } from '../utils/formatters';
 
 interface AvatarProps {
-  name: string;
-  phone: string;
+  leadNumber: number;
   size?: 'sm' | 'md' | 'lg';
   className?: string;
 }
 
-const Avatar: React.FC<AvatarProps> = ({ name, phone, size = 'md', className = '' }) => {
-  const initials = getInitials(name, phone);
-  
+const Avatar: React.FC<AvatarProps> = ({ leadNumber, size = 'md', className = '' }) => {
   const sizeClasses = {
     sm: 'w-8 h-8 text-xs',
     md: 'w-10 h-10 text-sm',
@@ -23,10 +19,10 @@ const Avatar: React.FC<AvatarProps> = ({ name, phone, size = 'md', className = '
       rounded-full 
       bg-gradient-to-br from-blue-500 to-purple-600 
       flex items-center justify-center 
-      text-white font-semibold
+      text-white font-bold
       ${className}
     `}>
-      {initials}
+      {leadNumber}
     </div>
   );
 };
