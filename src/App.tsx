@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import LoginPage from './components/LoginPage';
 import Sidebar from './components/Sidebar';
 import ConversationList from './components/ConversationList';
@@ -14,6 +14,7 @@ function App() {
   const [selectedContact, setSelectedContact] = useState<Contact | null>(null);
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [isMobile, setIsMobile] = useState(false);
+  const conversationListRef = useRef<{ refreshConversations: () => void } | null>(null);
 
   // Check authentication status on app load
   useEffect(() => {
@@ -79,6 +80,13 @@ function App() {
     }
   };
 
+  const handleMessageSent = () => {
+    // Trigger conversation list refresh when a message is sent
+    console.log('📤 MESSAGE SENT: Refreshing conversation list');
+    // The ConversationList component will handle the refresh through its polling mechanism
+    // We just need to ensure it re-renders with the latest data
+  };
+
   // Show login page if not authenticated
   if (!isAuthenticated) {
     return <LoginPage onLogin={handleLogin} />;
@@ -138,6 +146,7 @@ function App() {
                 selectedPhone={selectedPhone}
                 contactName={selectedContact?.name || ''}
                 onBack={isMobile ? handleBackToList : undefined}
+                onMessageSent={handleMessageSent}
                 className="h-full"
               />
             </div>

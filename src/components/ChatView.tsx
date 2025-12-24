@@ -10,13 +10,15 @@ interface ChatViewProps {
   selectedPhone: string | null;
   contactName: string;
   onBack?: () => void;
+  onMessageSent?: () => void;
   className?: string;
 }
 
 const ChatView: React.FC<ChatViewProps> = ({ 
   selectedPhone, 
   contactName, 
-  onBack, 
+  onBack,
+  onMessageSent,
   className = '' 
 }) => {
   const [messages, setMessages] = useState<Message[]>([]);
@@ -149,8 +151,12 @@ const ChatView: React.FC<ChatViewProps> = ({
       if (result.error) {
         setError('Failed to send message. Please try again.');
       } else {
-        // Message will be added optimistically by the API service
-        // and will appear in the conversation through polling
+        // Reload messages to show the sent message immediately
+        await loadMessages();
+        
+        // Notify parent to refresh conversation list
+        onMessageSent?.();
+        
         scrollToBottom();
       }
     } catch (err) {
