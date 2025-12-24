@@ -41,6 +41,18 @@ export class ApiService {
       };
     }
     
+    // Load processed message IDs from localStorage to persist across page refreshes
+    const savedProcessedIds = localStorage.getItem('sms-app-processed-ids');
+    if (savedProcessedIds) {
+      try {
+        const idsArray = JSON.parse(savedProcessedIds);
+        this.processedMessageIds = new Set(idsArray);
+        console.log('📋 LOADED', this.processedMessageIds.size, 'processed message IDs from localStorage');
+      } catch (error) {
+        console.warn('⚠️ Failed to load processed IDs from localStorage:', error);
+      }
+    }
+    
     console.log('🚀 API SERVICE INITIALIZED with settings:', this.settings);
   }
 
@@ -67,6 +79,17 @@ export class ApiService {
   setErrorCallback(callback: (error: string) => void) {
     this.onErrorCallback = callback;
     console.log('📞 ERROR CALLBACK SET');
+  }
+
+  // Save processed message IDs to localStorage
+  private saveProcessedIds() {
+    try {
+      const idsArray = Array.from(this.processedMessageIds);
+      localStorage.setItem('sms-app-processed-ids', JSON.stringify(idsArray));
+      console.log('💾 SAVED', idsArray.length, 'processed message IDs to localStorage');
+    } catch (error) {
+      console.warn('⚠️ Failed to save processed IDs to localStorage:', error);
+    }
   }
 
   // Convert API message format to internal format
@@ -259,20 +282,21 @@ export class ApiService {
     console.log('✅ CONVERTED: Created', convertedMessages.length, 'internal messages');
     console.log('📋 CONVERTED DATA:', JSON.stringify(convertedMessages, null, 2));
     
-    // Update all messages with current API data
+    // ALWAYS update all messages with current API data (this ensures conversations always show)
     this.allMessages = convertedMessages
       .sort((a, b) => new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime());
     
     console.log('💾 STORED: Total messages in memory:', this.allMessages.length);
     console.log('📋 ALL MESSAGES:', JSON.stringify(this.allMessages, null, 2));
     
-    // Find truly new messages (not processed before) 
+    // Find truly new messages (not processed before) for notifications
     const newMessages = convertedMessages.filter(msg => {
       if (!msg.id) return false;
       
       const isNew = !this.processedMessageIds.has(msg.id);
       if (isNew) {
         this.processedMessageIds.add(msg.id);
+        this.saveProcessedIds(); // Persist to localStorage
       }
       return isNew;
     });
@@ -285,6 +309,14 @@ export class ApiService {
     } else {
       console.log('ℹ️ NO NEW MESSAGES: All messages already processed');
       console.log('🔍 PROCESSED IDS:', Array.from(this.processedMessageIds));
+    }
+    
+    // IMPORTANT: Even if there are no new messages, we still trigger a callback
+    // to ensure the UI updates with all existing conversations
+    if (newMessages.length === 0 && convertedMessages.length > 0) {
+      console.log('🔄 TRIGGERING UPDATE: No new messages, but ensuring UI shows all conversations');
+      // Trigger callback with empty array to signal "data is ready"
+      this.onNewMessageCallback?.([]);
     }
   }
 
@@ -458,6 +490,7 @@ export class ApiService {
       this.allMessages.push(optimisticMessage);
       if (optimisticMessage.id) {
         this.processedMessageIds.add(optimisticMessage.id);
+        this.saveProcessedIds();
       }
 
       console.log('✅ MESSAGE SENT successfully');
@@ -513,6 +546,7 @@ export class ApiService {
     console.log('🔄 RESETTING processed messages');
     this.processedMessageIds.clear();
     this.allMessages = [];
+    localStorage.removeItem('sms-app-processed-ids');
   }
 
   // Get new messages since last check (for compatibility)
